@@ -10,7 +10,7 @@ def load_data(file_path):
 def get_starting_open_and_trend(data):
     monday_data = data[data['<DATETIME>'].dt.weekday == 0]
     if monday_data.empty:
-        return None, None, None
+        return None, None, None, None, None
 
     # Get the first available open price for Monday
     start_open = monday_data['<OPEN>'].iloc[0]
@@ -20,10 +20,25 @@ def get_starting_open_and_trend(data):
     if len(monday_data) > 1:
         next_open = monday_data['<OPEN>'].iloc[1]
         trend = 'up' if next_open > start_open else 'down'
+        # Start from index 2, check the trend continuously, and get the count of chart for continuous trend
+        trend_count = 0
+        for i in range(2, len(monday_data)):
+            if trend == 'up' and monday_data['<OPEN>'].iloc[i] > monday_data['<OPEN>'].iloc[i - 1]:
+                trend_count = i
+            elif trend == 'down' and monday_data['<OPEN>'].iloc[i] < monday_data['<OPEN>'].iloc[i - 1]:
+                trend_count = i
+            else:
+                break
+        max_rate_gap = 0
+        if trend_count > 0:
+            if trend == 'up':
+                max_rate_gap = (monday_data['<HIGH>'].iloc[trend_count] - start_open) / start_open * 10000
+            elif trend == 'down':
+                max_rate_gap = (start_open - monday_data['<LOW>'].iloc[trend_count]) / start_open * 10000
     else:
         trend = None
 
-    return start_time, start_open, trend
+    return start_time, start_open, trend, trend_count, max_rate_gap
 
 # Main function
 def main():
@@ -37,10 +52,10 @@ def main():
         week_data = data[(data['<DATETIME>'].dt.date >= monday_date) & 
                          (data['<DATETIME>'].dt.date < monday_date + pd.Timedelta(days=7))]
 
-        start_time, start_open, trend = get_starting_open_and_trend(week_data)
+        start_time, start_open, trend, trend_count, max_rate_gap = get_starting_open_and_trend(week_data)
 
         if start_time and start_open and trend:
-            print(f"Start Time: {start_time}, Start Open: {start_open}, Trend: {trend}")
+            print(f"Start Time: {start_time}, Start Open: {start_open}, Trend: {trend}, Trend Count: {trend_count}, Max Rate Gap: {max_rate_gap}")
         else:
             print(f"No valid data for Monday starting {monday_date}.")
 
